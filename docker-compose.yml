@@ -1,0 +1,67 @@
+services:
+  # RabbitMQ for AMQP
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: demo-rabbitmq
+    ports:
+      - "5672:5672"   # AMQP port
+      - "15672:15672" # Management UI
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  # Eclipse Mosquitto for MQTT
+  mosquitto:
+    image: eclipse-mosquitto:latest
+    container_name: demo-mosquitto
+    ports:
+      - "1883:1883"   # MQTT port
+      - "9001:9001"   # WebSocket port
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    command: mosquitto -c /mosquitto/config/mosquitto.conf
+
+  # Prosody for XMPP
+  prosody:
+    image: prosody/prosody:latest
+    container_name: demo-prosody
+    ports:
+      - "5222:5222"   # XMPP client port
+      - "5269:5269"   # XMPP server port
+    environment:
+      LOCAL: localhost
+      DOMAIN: localhost
+      PASSWORD: testpass
+    volumes:
+      - prosody_data:/var/lib/prosody
+
+  # Zookeeper for Kafka
+  zookeeper:
+    image: confluentinc/cp-zookeeper:latest
+    container_name: demo-zookeeper
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+    ports:
+      - "2181:2181"
+
+  # Apache Kafka
+  kafka:
+    image: confluentinc/cp-kafka:latest
+    container_name: demo-kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+
+volumes:
+  rabbitmq_data:
+  prosody_data:

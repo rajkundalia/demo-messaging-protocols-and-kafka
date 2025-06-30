@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Messaging Protocols Demo</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .protocol-section { background: white; margin: 20px 0; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .protocol-title { color: #333; border-bottom: 2px solid #007bff; padding-bottom: 10px; }
+        .input-group { margin: 15px 0; }
+        input[type="text"] { padding: 8px; width: 300px; border: 1px solid #ddd; border-radius: 4px; }
+        button { padding: 8px 16px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        button:hover { background: #0056b3; }
+        .messages { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-top: 10px; background: #f8f9fa; }
+        .message { margin: 5px 0; padding: 5px; background: white; border-left: 3px solid #007bff; }
+        .protocol-badge { display: inline-block; padding: 2px 6px; background: #007bff; color: white; border-radius: 3px; font-size: 12px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1>Messaging Protocols Demo</h1>
+    <p>This demo showcases 6 different messaging protocols in action.</p>
+
+    <!-- AMQP Section -->
+    <div class="protocol-section">
+        <h2 class="protocol-title">AMQP (Advanced Message Queuing Protocol)</h2>
+        <p><strong>Use Case:</strong> Enterprise message broker for reliable, transactional messaging</p>
+        <div class="input-group">
+            <input type="text" id="amqpMessage" placeholder="Enter AMQP message" />
+            <button onclick="sendAmqpMessage()">Send AMQP Message</button>
+        </div>
+        <div id="amqpMessages" class="messages"></div>
+    </div>
+
+    <!-- MQTT Section -->
+    <div class="protocol-section">
+        <h2 class="protocol-title">MQTT (Message Queuing Telemetry Transport)</h2>
+        <p><strong>Use Case:</strong> IoT devices, lightweight pub/sub messaging</p>
+        <div class="input-group">
+            <input type="text" id="mqttMessage" placeholder="Enter MQTT message" />
+            <button onclick="sendMqttMessage()">Send MQTT Message</button>
+        </div>
+        <div id="mqttMessages" class="messages"></div>
+    </div>
+
+    <!-- STOMP Section -->
+    <div class="protocol-section">
+        <h2 class="protocol-title">STOMP (Simple Text Oriented Messaging Protocol)</h2>
+        <p><strong>Use Case:</strong> WebSocket-based messaging for web applications</p>
+        <div class="input-group">
+            <input type="text" id="stompMessage" placeholder="Enter STOMP message" />
+            <button onclick="sendStompMessage()">Send STOMP Message</button>
+            <button onclick="connectStomp()">Connect WebSocket</button>
+        </div>
+        <div id="stompMessages" class="messages"></div>
+    </div>
+
+    <!-- CoAP Section -->
+    <div class="protocol-section">
+        <h2 class="protocol-title">CoAP (Constrained Application Protocol)</h2>
+        <p><strong>Use Case:</strong> IoT devices with limited resources, RESTful API for sensors</p>
+        <div class="input-group">
+            <input type="text" id="coapMessage" placeholder="Enter CoAP message" />
+            <button onclick="sendCoapMessage()">Send CoAP Message</button>
+        </div>
+        <div id="coapMessages" class="messages"></div>
+    </div>
+
+    <!-- XMPP Section -->
+    <div class="protocol-section">
+        <h2 class="protocol-title">XMPP (Extensible Messaging and Presence Protocol)</h2>
+        <p><strong>Use Case:</strong> Real-time chat, presence, instant messaging</p>
+        <div class="input-group">
+            <input type="text" id="xmppMessage" placeholder="Enter XMPP message" />
+            <button onclick="sendXmppMessage()">Send XMPP Message</button>
+        </div>
+        <div id="xmppMessages" class="messages"></div>
+    </div>
+
+    <!-- Kafka Section -->
+    <div class="protocol-section">
+        <h2 class="protocol-title">Apache Kafka</h2>
+        <p><strong>Use Case:</strong> High-throughput event streaming, log aggregation</p>
+        <div class="input-group">
+            <input type="text" id="kafkaMessage" placeholder="Enter Kafka message" />
+            <button onclick="sendKafkaMessage()">Send Kafka Message</button>
+        </div>
+        <div id="kafkaMessages" class="messages"></div>
+    </div>
+
+    <div class="protocol-section">
+        <button onclick="refreshAllMessages()">Refresh All Messages</button>
+    </div>
+</div>
+
+<script>
+        let stompClient = null;
+
+        // AMQP Functions
+        function sendAmqpMessage() {
+            const message = document.getElementById('amqpMessage').value;
+            if (!message) return;
+
+            fetch('/api/messaging/amqp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            }).then(() => {
+                document.getElementById('amqpMessage').value = '';
+                setTimeout(() => refreshMessages('amqp'), 1000);
+            });
+        }
+
+        // MQTT Functions
+        function sendMqttMessage() {
+            const message = document.getElementById('mqttMessage').value;
+            if (!message) return;
+
+            fetch('/api/messaging/mqtt/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            }).then(() => {
+                document.getElementById('mqttMessage').value = '';
+                setTimeout(() => refreshMessages('mqtt'), 1000);
+            });
+        }
+
+        // STOMP Functions
+        function connectStomp() {
+            const socket = new SockJS('/ws');
+            stompClient = Stomp.over(socket);
+            stompClient.connect({}, function (frame) {
+                stompClient.subscribe('/topic/messages', function (message) {
+                    const msg = JSON.parse(message.body);
+                    displayMessage('stomp', msg);
+                });
+                console.log('STOMP Connected');
+            });
+        }
+
+        function sendStompMessage() {
+            const message = document.getElementById('stompMessage').value;
+            if (!message || !stompClient) return;
+
+            stompClient.send("/app/send", {}, message);
+            document.getElementById('stompMessage').value = '';
+        }
+
+        // CoAP Functions
+        function sendCoapMessage() {
+            const message = document.getElementById('coapMessage').value;
+            if (!message) return;
+
+            fetch('/api/messaging/coap/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            }).then(() => {
+                document.getElementById('coapMessage').value = '';
+                setTimeout(() => refreshMessages('coap'), 1000);
+            });
+        }
+
+        // XMPP Functions
+        function sendXmppMessage() {
+            const message = document.getElementById('xmppMessage').value;
+            if (!message) return;
+
+            fetch('/api/messaging/xmpp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            }).then(() => {
+                document.getElementById('xmppMessage').value = '';
+                setTimeout(() => refreshMessages('xmpp'), 1000);
+            });
+        }
+
+        // Kafka Functions
+        function sendKafkaMessage() {
+            const message = document.getElementById('kafkaMessage').value;
+            if (!message) return;
+
+            fetch('/api/messaging/kafka/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: message })
+            }).then(() => {
+                document.getElementById('kafkaMessage').value = '';
+                setTimeout(() => refreshMessages('kafka'), 1000);
+            });
+        }
+
+        // Utility Functions
+        function refreshMessages(protocol) {
+            fetch('/api/messaging/messages')
+                .then(response => response.json())
+                .then(data => {
+                    if (data[protocol]) {
+                        displayMessages(protocol, data[protocol]);
+                    }
+                });
+        }
+
+        function refreshAllMessages() {
+            fetch('/api/messaging/messages')
+                .then(response => response.json())
+                .then(data => {
+                    Object.keys(data).forEach(protocol => {
+                        displayMessages(protocol, data[protocol]);
+                    });
+                });
+        }
+
+        function displayMessages(protocol, messages) {
+            const container = document.getElementById(protocol + 'Messages');
+            container.innerHTML = messages.map(msg =>
+                `<div class="message">
+                    <span class="protocol-badge">${msg.protocol}</span>
+                    <strong>${msg.sender}:</strong> ${msg.content}
+                    <small style="float: right; color: #666;">${new Date(msg.timestamp).toLocaleTimeString()}</small>
+                </div>`
+            ).join('');
+        }
+
+        function displayMessage(protocol, message) {
+            const container = document.getElementById(protocol + 'Messages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = 'message';
+            messageDiv.innerHTML = `
+                <span class="protocol-badge">${message.protocol}</span>
+                <strong>${message.sender}:</strong> ${message.content}
+                <small style="float: right; color: #666;">${new Date(message.timestamp).toLocaleTimeString()}</small>
+            `;
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+
+        // Initialize on page load
+        window.onload = function() {
+            connectStomp();
+            refreshAllMessages();
+        };
+    </script>
+</body>
+</html>
