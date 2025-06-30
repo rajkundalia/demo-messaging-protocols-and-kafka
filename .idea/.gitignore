@@ -1,3 +1,12 @@
 # Default ignored files
 /shelf/
 /workspace.xml
+/vcs.xml
+/runConfigurations.xml
+/misc.xml
+/.idea/libraries
+/encodings.xml
+/jarRepositories.xml
+/modules.xml
+/compiler.xml
+../messaging-protocols-demo.iml
