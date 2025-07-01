@@ -15,9 +15,13 @@
         input[type="text"] { padding: 8px; width: 300px; border: 1px solid #ddd; border-radius: 4px; }
         button { padding: 8px 16px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
         button:hover { background: #0056b3; }
+        button:disabled { background: #6c757d; cursor: not-allowed; }
         .messages { max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; margin-top: 10px; background: #f8f9fa; }
         .message { margin: 5px 0; padding: 5px; background: white; border-left: 3px solid #007bff; }
         .protocol-badge { display: inline-block; padding: 2px 6px; background: #007bff; color: white; border-radius: 3px; font-size: 12px; }
+        .connection-status { padding: 5px 10px; border-radius: 4px; font-size: 12px; margin-left: 10px; }
+        .connected { background: #d4edda; color: #155724; }
+        .disconnected { background: #f8d7da; color: #721c24; }
     </style>
 </head>
 <body>
@@ -53,8 +57,9 @@
         <p><strong>Use Case:</strong> WebSocket-based messaging for web applications</p>
         <div class="input-group">
             <input type="text" id="stompMessage" placeholder="Enter STOMP message" />
-            <button onclick="sendStompMessage()">Send STOMP Message</button>
-            <button onclick="connectStomp()">Connect WebSocket</button>
+            <button id="stompSendBtn" onclick="sendStompMessage()" disabled>Send STOMP Message</button>
+            <button id="stompConnectBtn" onclick="connectStomp()">Connect WebSocket</button>
+            <span id="stompStatus" class="connection-status disconnected">Disconnected</span>
         </div>
         <div id="stompMessages" class="messages"></div>
     </div>
@@ -99,6 +104,7 @@
 
 <script>
         let stompClient = null;
+        let isStompConnected = false;
 
         // AMQP Functions
         function sendAmqpMessage() {
@@ -132,23 +138,78 @@
 
         // STOMP Functions
         function connectStomp() {
+            if (isStompConnected) return;
+
             const socket = new SockJS('/ws');
             stompClient = Stomp.over(socket);
+
+            stompClient.debug = function(str) {
+                console.log('STOMP DEBUG: ' + str);
+            };
+
             stompClient.connect({}, function (frame) {
-                stompClient.subscribe('/topic/messages', function (message) {
-                    const msg = JSON.parse(message.body);
-                    displayMessage('stomp', msg);
+                console.log('STOMP Connected: ' + frame);
+                isStompConnected = true;
+                updateStompUI();
+
+                // Subscribe to messages
+                stompClient.subscribe('/topic/messages', function (messageFrame) {
+                    console.log('Received STOMP message:', messageFrame);
+                    try {
+                        const msg = JSON.parse(messageFrame.body);
+                        console.log('Parsed message:', msg);
+                        displayMessage('stomp', msg);
+                    } catch (e) {
+                        console.error('Error parsing STOMP message:', e, messageFrame.body);
+                    }
                 });
-                console.log('STOMP Connected');
+
+                // Load existing messages when connected
+                refreshMessages('stomp');
+            }, function(error) {
+                console.log('STOMP connection error: ' + error);
+                isStompConnected = false;
+                updateStompUI();
             });
         }
 
         function sendStompMessage() {
             const message = document.getElementById('stompMessage').value;
-            if (!message || !stompClient) return;
+            if (!message || !stompClient || !isStompConnected) return;
 
+            console.log('Sending STOMP message:', message);
+
+            // Send via WebSocket - this will trigger @MessageMapping("/send")
             stompClient.send("/app/send", {}, message);
             document.getElementById('stompMessage').value = '';
+        }
+
+        function updateStompUI() {
+            const connectBtn = document.getElementById('stompConnectBtn');
+            const sendBtn = document.getElementById('stompSendBtn');
+            const status = document.getElementById('stompStatus');
+
+            if (isStompConnected) {
+                connectBtn.textContent = 'Disconnect WebSocket';
+                connectBtn.onclick = disconnectStomp;
+                sendBtn.disabled = false;
+                status.textContent = 'Connected';
+                status.className = 'connection-status connected';
+            } else {
+                connectBtn.textContent = 'Connect WebSocket';
+                connectBtn.onclick = connectStomp;
+                sendBtn.disabled = true;
+                status.textContent = 'Disconnected';
+                status.className = 'connection-status disconnected';
+            }
+        }
+
+        function disconnectStomp() {
+            if (stompClient && isStompConnected) {
+                stompClient.disconnect();
+                isStompConnected = false;
+                updateStompUI();
+            }
         }
 
         // CoAP Functions
@@ -204,7 +265,8 @@
                     if (data[protocol]) {
                         displayMessages(protocol, data[protocol]);
                     }
-                });
+                })
+                .catch(error => console.error('Error refreshing messages:', error));
         }
 
         function refreshAllMessages() {
@@ -214,11 +276,14 @@
                     Object.keys(data).forEach(protocol => {
                         displayMessages(protocol, data[protocol]);
                     });
-                });
+                })
+                .catch(error => console.error('Error refreshing all messages:', error));
         }
 
         function displayMessages(protocol, messages) {
-            const container = document.getElementById(protocol + 'Messages');
+            const container = document.getElementById(protocol.toLowerCase() + 'Messages');
+            if (!container) return;
+
             container.innerHTML = messages.map(msg =>
                 `<div class="message">
                     <span class="protocol-badge">${msg.protocol}</span>
@@ -226,10 +291,13 @@
                     <small style="float: right; color: #666;">${new Date(msg.timestamp).toLocaleTimeString()}</small>
                 </div>`
             ).join('');
+            container.scrollTop = container.scrollHeight;
         }
 
         function displayMessage(protocol, message) {
-            const container = document.getElementById(protocol + 'Messages');
+            const container = document.getElementById(protocol.toLowerCase() + 'Messages');
+            if (!container) return;
+
             const messageDiv = document.createElement('div');
             messageDiv.className = 'message';
             messageDiv.innerHTML = `
@@ -243,9 +311,26 @@
 
         // Initialize on page load
         window.onload = function() {
-            connectStomp();
+            updateStompUI();
             refreshAllMessages();
+            // Auto-connect STOMP for better user experience
+            setTimeout(connectStomp, 1000);
         };
+
+        // Handle Enter key in input fields
+        document.addEventListener('DOMContentLoaded', function() {
+            const inputs = document.querySelectorAll('input[type="text"]');
+            inputs.forEach(input => {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        const button = this.parentElement.querySelector('button');
+                        if (button && !button.disabled) {
+                            button.click();
+                        }
+                    }
+                });
+            });
+        });
     </script>
 </body>
 </html>

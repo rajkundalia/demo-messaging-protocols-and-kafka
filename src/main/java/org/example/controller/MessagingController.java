@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.example.amqp.AmqpService;
 import org.example.coap.CoapService;
 import org.example.dto.MessageDto;
+//import org.example.kafka.KafkaService;
 import org.example.kafka.KafkaService;
 import org.example.mqtt.MqttService;
 import org.example.stomp.StompService;
