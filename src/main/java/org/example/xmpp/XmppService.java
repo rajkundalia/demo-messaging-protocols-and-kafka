@@ -25,15 +25,23 @@ public class XmppService {
     @PostConstruct
     public void initialize() {
         try {
+
             XMPPTCPConnectionConfiguration config = XMPPTCPConnectionConfiguration.builder()
                     .setUsernameAndPassword("testuser", "testpass")
                     .setXmppDomain("localhost")
-                    .setHost("localhost")
+                    .setHost("127.0.0.1")
                     .setPort(5222)
+                    .setSecurityMode(XMPPTCPConnectionConfiguration.SecurityMode.disabled)
+                    .setSendPresence(true)
+                    .setCompressionEnabled(false)
                     .build();
 
             connection = new XMPPTCPConnection(config);
+
+            log.info("Attempting to connect to XMPP server...");
             connection.connect();
+
+            log.info("Connected to XMPP server, attempting login...");
             connection.login();
 
             ChatManager chatManager = ChatManager.getInstanceFor(connection);
@@ -51,12 +59,35 @@ public class XmppService {
 
             log.info("XMPP client connected and logged in");
         } catch (Exception e) {
-            log.error("XMPP connection failed: {}", e.getMessage());
+            log.error("XMPP connection failed: {}", e.getMessage(), e);
         }
     }
 
+    /**
+     * Initialize Base64 encoder to fix the null pointer exception
+     */
+//    private void initializeBase64Encoder() {
+//        try {
+//            // Set the Base64 encoder manually
+//            Base64.setEncoder();
+//            Base64UrlSafeEncoder.setEncoder();
+//            log.info("Base64 encoder initialized successfully");
+//        } catch (Exception e) {
+//            log.warn("Failed to initialize Base64 encoder: {}", e.getMessage());
+//        }
+//    }
+
     public void sendMessage(String message, String recipient) {
         try {
+            if (connection == null || !connection.isConnected() || !connection.isAuthenticated()) {
+                log.warn("XMPP connection not established or authenticated. Attempting to re-initialize.");
+                initialize(); // Attempt to re-initialize if not connected
+                if (connection == null || !connection.isConnected() || !connection.isAuthenticated()) {
+                    log.error("Failed to establish XMPP connection for sending message.");
+                    return;
+                }
+            }
+
             ChatManager chatManager = ChatManager.getInstanceFor(connection);
             EntityBareJid jid = JidCreate.entityBareFrom(recipient + "@localhost");
             Chat chat = chatManager.chatWith(jid);
@@ -64,12 +95,12 @@ public class XmppService {
             chat.send(message);
             log.info("XMPP message sent to {}: {}", recipient, message);
         } catch (Exception e) {
-            log.error("XMPP send failed: {}", e.getMessage());
+            log.error("XMPP send failed: {}", e.getMessage(), e);
         }
     }
 
     public void sendMessage(String message) {
-        sendMessage(message, "recipient");
+        sendMessage(message, "testuser");
     }
 
     public List<MessageDto> getReceivedMessages() {

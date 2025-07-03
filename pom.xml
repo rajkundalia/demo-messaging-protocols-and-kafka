@@ -65,30 +65,13 @@
         </dependency>
 
         <!-- XMPP - Smack -->
-        <dependency>
-            <groupId>org.igniterealtime.smack</groupId>
-            <artifactId>smack-tcp</artifactId>
-            <version>4.4.8</version> <!-- XMPP TCP connection -->
-        </dependency>
 
+<!--        https://discourse.igniterealtime.org/t/smack-4-4-8-base64encoder-problem/94265/5-->
         <dependency>
             <groupId>org.igniterealtime.smack</groupId>
-            <artifactId>smack-im</artifactId>
-            <version>4.4.8</version> <!-- XMPP instant messaging -->
-        </dependency>
-
-        <dependency>
-            <groupId>org.igniterealtime.smack</groupId>
-            <artifactId>smack-extensions</artifactId>
+            <artifactId>smack-java8-full</artifactId>
             <version>4.4.8</version>
         </dependency>
-
-        <dependency>
-            <groupId>org.igniterealtime.smack</groupId>
-            <artifactId>smack-xmlparser-stax</artifactId>
-            <version>4.4.8</version>
-        </dependency>
-
 
 
         <!-- Kafka -->

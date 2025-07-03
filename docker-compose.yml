@@ -31,11 +31,13 @@ services:
       - "5222:5222"   # XMPP client port
       - "5269:5269"   # XMPP server port
     environment:
-      LOCAL: localhost
+      LOCAL: testuser
       DOMAIN: localhost
       PASSWORD: testpass
     volumes:
       - prosody_data:/var/lib/prosody
+      - ./prosody.cfg.lua:/etc/prosody/prosody.cfg.lua
+    command: prosody --config=/etc/prosody/prosody.cfg.lua
 
   # Zookeeper for Kafka
   zookeeper:
