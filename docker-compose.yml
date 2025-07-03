@@ -53,16 +53,25 @@ services:
   kafka:
     image: confluentinc/cp-kafka:latest
     container_name: demo-kafka
-    depends_on:
-      - zookeeper
     ports:
       - "9092:9092"
+      - "9093:9093"
     environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_KRAFT_MODE: "true"  # Enables KRaft mode
+      KAFKA_PROCESS_ROLES: "controller,broker"  # This node acts as both controller and broker
+      KAFKA_NODE_ID: 1  # Unique ID for this node
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@localhost:9093"  # Controller quorum voters
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_AUTO_CREATE_TOPICS_ENABLE: true
+      CLUSTER_ID: '6228445f-2eb1-41be-b71c-f62578ed9939'  # Use a unique, consistent cluster ID
+    volumes:
+      - ./data:/var/lib/kafka/data
 
 volumes:
   rabbitmq_data:
